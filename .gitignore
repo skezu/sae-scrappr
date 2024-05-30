@@ -1,0 +1,5 @@
+.env
+.venv/
+templates/
+main.py
+soup.html
