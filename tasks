@@ -1,0 +1,20 @@
+loqmann:
+Twitter Login: Automates login to Twitter using provided credentials.
+Tweet Scraping: Searches and scrapes tweets based on a specified query.
+	filters: people - trending - recent - top liked 
+Sentiment Analysis: Analyzes the sentiments of scraped tweets using OpenAI's GPT-4 model.
+chat with llam to get infos abt the tab : loq 
+activate and desactive the replies
+--------------------
+hamed:
+Data Display: Displays the results in a Streamlit web application.
+diagrammes de gantt
+button that redirects u to charts page 
+button that redirects u to the scrapped website dashboard
+button for the replies
+after prompt the results tab dissapears : fix 
+----------------------
+abdou: 
+dockerfile
+reddit logging 
+reddit scrapping 
