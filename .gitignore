@@ -3,3 +3,4 @@
 templates/
 main.py
 soup.html
+twitter_scrapper_app.py

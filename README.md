@@ -13,8 +13,8 @@ A Python application for scraping tweets related to a specific topic and analyzi
 
 1. Clone the repository:
     ```bash
-    git clone https://github.com/yourusername/twitter-sentiment-analysis.git
-    cd twitter-sentiment-analysis
+    git clone https://github.com/skezu/sae-scrappr.git
+    cd sae-scrappr
     ```
 
 2. Create a virtual environment and activate it:
@@ -27,6 +27,7 @@ A Python application for scraping tweets related to a specific topic and analyzi
     ```bash
     pip install -r requirements.txt
     ```
+    If `openai` can't be installed, try : `pip install --upgrade openai`
 
 ## Configuration
 
