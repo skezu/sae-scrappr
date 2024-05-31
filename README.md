@@ -1,4 +1,3 @@
-```markdown
 # Twitter Sentiment Analysis
 
 A Python application for scraping tweets related to a specific topic and analyzing their sentiments using OpenAI's GPT-4. The project leverages Streamlit for the web interface, Selenium for web scraping, BeautifulSoup for HTML parsing, and LangChain for enhanced language model interactions.
@@ -68,4 +67,3 @@ For any inquiries or issues, please open an issue in the GitHub repository.
 ---
 
 **Note**: Ensure that your Twitter credentials and OpenAI API key are kept secure and not exposed in any public repositories or environments.
-```
