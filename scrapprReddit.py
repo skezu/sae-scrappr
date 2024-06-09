@@ -79,12 +79,13 @@ class RedditScraper:
             logging.error(f"WebDriver exception occurred: {e}")
             raise
 
-    def scrape_tweets(self, max_reddits=100):
+    def scrape_reddits(self, max_reddits=100):
         try:
             time.sleep(1)
             logging.info("Scraping reddits...")
+            self.driver.find_element(By.XPATH, '/html/body/shreddit-app/search-dynamic-id-cache-controller/div/div/div[1]/div[2]/main/div/reddit-feed/faceplate-tracker[1]/post-consume-tracker/div/faceplate-tracker[1]/h2/a').click()
             soup = BeautifulSoup(self.driver.page_source, 'lxml')
-            postings = soup.find_all('div', {'class': 'css-146c3p1 r-8akbws r-krxsd3 r-dnmrzs r-1udh08x r-bcqeeo r-1ttztb7 r-qvutc0 r-1qd0xha r-a023e6 r-rjixqe r-16dba41 r-bnwqim', 'data-testid': 'tweetText'})
+            postings = soup.find_all('section', {'class': 'flex flex-col px-md xs:px-0 gap-md relative', 'aria-label': 'Commentaires'})
             
             reddits = []
             while True:
@@ -93,7 +94,7 @@ class RedditScraper:
                 self.driver.execute_script('window.scrollTo(0, document.body.scrollHeight)')
                 time.sleep(1)
                 soup = BeautifulSoup(self.driver.page_source, 'lxml')
-                postings = soup.find_all('div', class_='css-146c3p1 r-8akbws r-krxsd3 r-dnmrzs r-1udh08x r-bcqeeo r-1ttztb7 r-qvutc0 r-1qd0xha r-a023e6 r-rjixqe r-16dba41 r-bnwqim')
+                postings = soup.find_all('section', class_='flex flex-col px-md xs:px-0 gap-md relative')
                 reddits2 = list(set(reddits))
                 if len(reddits2) > max_reddits:
                     break
