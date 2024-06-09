@@ -2,7 +2,15 @@ import os
 import time
 import logging
 import streamlit as st
-import praw
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.common.exceptions import NoSuchElementException, TimeoutException, WebDriverException
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from bs4 import BeautifulSoup
 from openai import OpenAI
 from langchain_experimental.agents.agent_toolkits import create_pandas_dataframe_agent
 from langchain_groq import ChatGroq
@@ -12,43 +20,92 @@ import pandas as pd
 logging.basicConfig(level=logging.INFO)
 
 class RedditScraper:
-    def __init__(self, reddit_client_id, reddit_client_secret, reddit_username, reddit_password, openai_api_key=os.getenv('OPENAI_API_KEY')):
-        self.reddit_client_id = reddit_client_id
-        self.reddit_client_secret = reddit_client_secret
+    def __init__(self, reddit_email, reddit_username, reddit_password, openai_api_key=os.getenv('OPENAI_API_KEY')):
+        self.reddit_email = reddit_email
         self.reddit_username = reddit_username
         self.reddit_password = reddit_password
         self.openai_api_key = openai_api_key
         self.prompt_system = ("You are a helpful and skilled assistant designed to analyze sentiments "
-                              "expressed in a list of Reddit posts. Based on a provided list of posts, you will "
+                              "expressed in a list of tweets. Based on a provided list of tweets, you will "
                               "provide an analysis of a summary table in csv format (delimiter '|') of the "
-                              "posts with their detected sentiment. You will chose between 3 sentiments: "
+                              "tweets with their detected sentiment. You will chose between 3 sentiments: "
                               "Positive, Negative, Neutral. The output will be the sentiment detected regarding "
                               "Donald Trump's situation in the elections.")
+        self.driver = self.initialize_driver()
         self.client = OpenAI(api_key=self.openai_api_key)
         self.dataframe = None
 
-        self.reddit = praw.Reddit(
-            client_id=self.reddit_client_id,
-            client_secret=self.reddit_client_secret,
-            username=self.reddit_username,
-            password=self.reddit_password,
-            user_agent="sentiment_analysis"
-        )
+    @staticmethod
+    def initialize_driver():
+        options = webdriver.ChromeOptions()
+        options.add_argument('--headless')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        options.page_load_strategy = 'none'
+        return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
-    def search_posts(self, subreddit, query, limit=100):
+    def login_to_reddit(self):
         try:
-            logging.info("Searching Reddit posts...")
-            subreddit = self.reddit.subreddit(subreddit)
-            posts = subreddit.search(query, limit=limit)
-            return [post.title + " " + post.selftext for post in posts]
-        except Exception as e:
-            logging.error(f"Error while searching posts: {e}")
+            self.driver.get('https://www.reddit.com/login/')
+            WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '/html/body/shreddit-app/shreddit-overlay-display/span[4]/input'))).send_keys(self.twitter_email)
+        
+            try:
+                WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '/html/body/shreddit-app/shreddit-overlay-display/span[4]/input'))).send_keys(self.twitter_username)
+            except NoSuchElementException:
+                logging.info("Username confirmation page not found, continuing...")
+
+            WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '/html/body/shreddit-app/shreddit-overlay-display/span[5]/input'))).send_keys(self.twitter_password)
+            self.driver.find_element(By.XPATH, '/html/body/shreddit-app/shreddit-overlay-display//shreddit-signup-drawer//shreddit-drawer/div/shreddit-async-loader/div/shreddit-slotter//span/shreddit-async-loader/auth-flow-login/faceplate-tabpanel/faceplate-form[1]/auth-flow-modal/div[2]/faceplate-tracker/button').click()
+        except TimeoutException:
+            logging.error("Timeout while trying to log in to Twitter.")
+            raise
+        except WebDriverException as e:
+            logging.error(f"WebDriver exception occurred: {e}")
             raise
 
-    def analyze_sentiments(self, posts):
+    def search_reddits(self, query):
+        try:
+            time.sleep(3)
+            self.driver.get('https://www.reddit.com/')
+            WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '/html/body/shreddit-app/reddit-header-large/reddit-header-action-items/header/nav/div[2]/div/div/search-dynamic-id-cache-controller/reddit-search-large//div/div[1]/form/faceplate-search-input//label/div/span[2]/input')))
+            search_box = self.driver.find_element(By.XPATH, '/html/body/shreddit-app/reddit-header-large/reddit-header-action-items/header/nav/div[2]/div/div/search-dynamic-id-cache-controller/reddit-search-large//div/div[1]/form/faceplate-search-input//label/div/span[2]/input')
+            search_box.send_keys(query)
+            search_box.send_keys(Keys.ENTER)
+            #WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '//*[@id="react-root"]/div/div/div[2]/main/div/div/div/div[1]/div/div[1]/div[1]/div[2]/nav/div/div[2]/div/div[2]/a'))).click()
+        except TimeoutException:
+            logging.error("Timeout while trying to search reddits.")
+            raise
+        except WebDriverException as e:
+            logging.error(f"WebDriver exception occurred: {e}")
+            raise
+
+    def scrape_tweets(self, max_reddits=100):
+        try:
+            time.sleep(1)
+            logging.info("Scraping reddits...")
+            soup = BeautifulSoup(self.driver.page_source, 'lxml')
+            postings = soup.find_all('div', {'class': 'css-146c3p1 r-8akbws r-krxsd3 r-dnmrzs r-1udh08x r-bcqeeo r-1ttztb7 r-qvutc0 r-1qd0xha r-a023e6 r-rjixqe r-16dba41 r-bnwqim', 'data-testid': 'tweetText'})
+            
+            reddits = []
+            while True:
+                for post in postings:
+                    reddits.append(post.text)
+                self.driver.execute_script('window.scrollTo(0, document.body.scrollHeight)')
+                time.sleep(1)
+                soup = BeautifulSoup(self.driver.page_source, 'lxml')
+                postings = soup.find_all('div', class_='css-146c3p1 r-8akbws r-krxsd3 r-dnmrzs r-1udh08x r-bcqeeo r-1ttztb7 r-qvutc0 r-1qd0xha r-a023e6 r-rjixqe r-16dba41 r-bnwqim')
+                reddits2 = list(set(reddits))
+                if len(reddits2) > max_reddits:
+                    break
+            return reddits2
+        except Exception as e:
+            logging.error(f"Error while scraping reddits: {e}")
+            raise
+
+    def analyze_sentiments(self, reddits):
         logging.info("Analyzing sentiments...")
-        nb_choix = len(posts) // 20 + 1
-        parts = [posts[i * (len(posts) // nb_choix):(i + 1) * (len(posts) // nb_choix)] for i in range(nb_choix)]
+        nb_choix = len(reddits) // 20 + 1
+        parts = [reddits[i * (len(reddits) // nb_choix):(i + 1) * (len(reddits) // nb_choix)] for i in range(nb_choix)]
         responses = []
         for part in parts:
             conversation = [
@@ -76,39 +133,50 @@ class RedditScraper:
                     response = agent.invoke(prompt)
                     st.write(response["output"])
 
+    def run(self, query, max_reddits=100):
+        try:
+            self.login_to_reddit()
+            self.search_reddits(query)
+            reddits = self.scrape_reddits(max_reddits)
+            return reddits
+        except Exception as e:
+            logging.error(f"An error occurred: {e}")
+            return None
+        finally:
+            self.driver.quit()
+
 def main():
-    st.title("Reddit Sentiment Analysis")
+    st.title("Twitter Sentiment Analysis")
 
     st.sidebar.title("Configuration")
-    reddit_client_id = st.sidebar.text_input("Reddit Client ID")
-    reddit_client_secret = st.sidebar.text_input("Reddit Client Secret", type="password")
+    reddit_email = st.sidebar.text_input("Reddit Email", type="password")
     reddit_username = st.sidebar.text_input("Reddit Username")
     reddit_password = st.sidebar.text_input("Reddit Password", type="password")
     openai_api_key = st.sidebar.text_input("OpenAI API Key", type="password")
 
-    subreddit = st.text_input("Subreddit", "politics")
     query = st.text_input("Search Query", "Donald Trump election")
-    max_posts = st.slider("Number of Posts to Scrape", min_value=10, max_value=500, value=100)
+    max_reddits = st.slider("Number of Reddits to Scrape", min_value=10, max_value=500, value=100)
 
     if "responses" not in st.session_state:
         st.session_state.responses = None
 
-    if st.button("Scrape posts"):
-        if not (reddit_client_id and reddit_client_secret and reddit_username and reddit_password and openai_api_key):
+    if st.button("Scrap reddits"):
+        if not (reddit_email and reddit_username and reddit_password and openai_api_key):
             st.error("Please fill in all the fields in the sidebar.")
         else:
-            scraper = RedditScraper(reddit_client_id, reddit_client_secret, reddit_username, reddit_password, openai_api_key)
-            with st.spinner("Scraping and formatting posts..."):
-                responses = scraper.search_posts(subreddit, query, max_posts)
+            scraper = RedditScraper(reddit_email, reddit_username, reddit_password, openai_api_key)
+            with st.spinner("Scraping and formatting reddits..."):
+                responses = scraper.run(query, max_reddits)
             if responses:
                 st.session_state.responses = responses
-                st.session_state.df = pd.DataFrame(responses, columns=["Post"])
+                st.session_state.df = pd.DataFrame(responses, columns=["Reddits"])
                 st.dataframe(st.session_state.df, use_container_width=True)
             else:
                 st.error("An error occurred during the process. Please check the logs.")
 
     if st.session_state.responses:
-        scraper = RedditScraper(reddit_client_id, reddit_client_secret, reddit_username, reddit_password, openai_api_key)
+        #st.dataframe(st.session_state.df, use_container_width=True)
+        scraper = RedditScraper(reddit_email, reddit_username, reddit_password, openai_api_key)
         scraper.chat_with_dataframe(st.session_state.df)
 
 if __name__ == "__main__":

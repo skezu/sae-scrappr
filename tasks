@@ -16,5 +16,7 @@ after prompt the results tab dissapears : fix
 ----------------------
 abdou: 
 dockerfile
-reddit logging 
-reddit scrapping 
+Reddits Login: Automates login to Reddit using provided credentials.
+Reddit Scraping: Searches and scrapes reddits based on a specified query.
+	filters: people - trending - recent - top liked 
+Sentiment Analysis: Analyzes the sentiments of scraped reddits using OpenAI's GPT-4 model.
