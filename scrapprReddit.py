@@ -38,7 +38,7 @@ class RedditScraper:
     @staticmethod
     def initialize_driver():
         options = webdriver.ChromeOptions()
-        options.add_argument('--headless')
+        #options.add_argument('--headless')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         options.page_load_strategy = 'none'
@@ -47,17 +47,13 @@ class RedditScraper:
     def login_to_reddit(self):
         try:
             self.driver.get('https://www.reddit.com/login/')
-            WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '/html/body/shreddit-app/shreddit-overlay-display/span[4]/input'))).send_keys(self.twitter_email)
-        
-            try:
-                WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '/html/body/shreddit-app/shreddit-overlay-display/span[4]/input'))).send_keys(self.twitter_username)
-            except NoSuchElementException:
-                logging.info("Username confirmation page not found, continuing...")
-
-            WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '/html/body/shreddit-app/shreddit-overlay-display/span[5]/input'))).send_keys(self.twitter_password)
-            self.driver.find_element(By.XPATH, '/html/body/shreddit-app/shreddit-overlay-display//shreddit-signup-drawer//shreddit-drawer/div/shreddit-async-loader/div/shreddit-slotter//span/shreddit-async-loader/auth-flow-login/faceplate-tabpanel/faceplate-form[1]/auth-flow-modal/div[2]/faceplate-tracker/button').click()
+            WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '/html/body/shreddit-app/shreddit-overlay-display/span[4]/input'))).send_keys(self.reddit_email)
+            WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '/html/body/shreddit-app/shreddit-overlay-display/span[5]/input'))).send_keys(self.reddit_password)
+            time.sleep(5)
+            # self.driver.find_element(By.XPATH, '/html/body/shreddit-app/shreddit-overlay-display//shreddit-signup-drawer//shreddit-drawer/div/shreddit-async-loader/div/shreddit-slotter//span/shreddit-async-loader/auth-flow-login/faceplate-tabpanel/faceplate-form[1]/auth-flow-modal/div[2]/faceplate-tracker/button').click()
+            self.driver.find_element(By.XPATH, '//*[@id="login"]/auth-flow-modal/div[2]/faceplate-tracker/button').send_keys(Keys.ENTER)
         except TimeoutException:
-            logging.error("Timeout while trying to log in to Twitter.")
+            logging.error("Timeout while trying to log in to Reddit.")
             raise
         except WebDriverException as e:
             logging.error(f"WebDriver exception occurred: {e}")
@@ -147,7 +143,7 @@ class RedditScraper:
             self.driver.quit()
 
 def main():
-    st.title("Twitter Sentiment Analysis")
+    st.title("Reddit Sentiment Analysis")
 
     st.sidebar.title("Configuration")
     reddit_email = st.sidebar.text_input("Reddit Email", type="password")
