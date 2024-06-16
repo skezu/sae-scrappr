@@ -148,7 +148,7 @@ class TwitterScraper:
             self.driver.quit()
 
 def main():
-    st.title("Twitter Sentiment Analysis")
+    st.title("x Sentiment Analysis")
 
     st.sidebar.title("Configuration")
     twitter_email = st.sidebar.text_input("Twitter Email", type="password")
