@@ -1,7 +1,7 @@
 import streamlit as st
 
 def main():
-    st.title("Welcome to Streamlit")
+    st.title(" to Streamlit")
     st.subheader("Try changing the value below:")
     
     name = st.text_input("Enter your name", "John Doe")
