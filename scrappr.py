@@ -15,7 +15,7 @@ from openai import OpenAI
 from langchain_experimental.agents.agent_toolkits import create_pandas_dataframe_agent
 from langchain_groq import ChatGroq
 import pandas as pd
-from credentials import twitter_email, twitter_username, twitter_password, openai_api_key
+from credentiels import twitter_email, twitter_username, twitter_password, openai_api_key
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
