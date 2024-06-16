@@ -10,20 +10,12 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import NoSuchElementException, TimeoutException, WebDriverException
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
-from webdriver_manager.utils import ChromeType
-from webdriver_manager.core.utils import read_version_from_cmd
 from bs4 import BeautifulSoup
 from openai import OpenAI
 from langchain_experimental.agents.agent_toolkits import create_pandas_dataframe_agent
 from langchain_groq import ChatGroq
 import pandas as pd
-from dotenv import load_dotenv
-
-load_dotenv()
-twitter_email = os.getenv("TWITTER_EMAIL")
-twitter_username = os.getenv("TWITTER_USERNAME")
-twitter_password = os.getenv("TWITTER_PASSWORD")
-openai_api_key = os.getenv("OPENAI_API_KEY")
+from credentials import twitter_email, twitter_username, twitter_password, openai_api_key
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -47,21 +39,11 @@ class TwitterScraper:
     @staticmethod
     def initialize_driver():
         options = webdriver.ChromeOptions()
-        # options.add_argument('--headless')
+        #options.add_argument('--headless')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         options.page_load_strategy = 'none'
-        
-        # Handle Chrome version detection
-        try:
-            chrome_version = read_version_from_cmd("google-chrome")
-        except Exception as e:
-            logging.error(f"Error determining Chrome version: {e}")
-            chrome_version = "latest"
-
-        driver_path = ChromeDriverManager(version=chrome_version, chrome_type=ChromeType.GOOGLE).install()
-        
-        return webdriver.Chrome(service=Service(driver_path), options=options)
+        return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
     def login_to_twitter(self):
         try:
@@ -167,7 +149,8 @@ class TwitterScraper:
             self.driver.quit()
 
 def main():
-    st.title("Twitter Sentiment Analysis")
+    st.title("x Sentiment Analysis")
+
 
     query = st.text_input("Search Query", "Donald Trump election")
     max_tweets = st.slider("Number of Tweets to Scrape", min_value=10, max_value=500, value=100)
@@ -177,7 +160,7 @@ def main():
 
     if st.button("Scrap tweets"):
         if not (twitter_email and twitter_username and twitter_password and openai_api_key):
-            st.error("Please ensure all credentials are set in the .env file.")
+            st.error("Please fill in all the fields in the sidebar.")
         else:
             scraper = TwitterScraper(twitter_email, twitter_username, twitter_password, openai_api_key)
             with st.spinner("Scraping and formatting tweets..."):
@@ -190,6 +173,7 @@ def main():
                 st.error("An error occurred during the process. Please check the logs.")
 
     if st.session_state.responses:
+        #st.dataframe(st.session_state.df, use_container_width=True)
         scraper = TwitterScraper(twitter_email, twitter_username, twitter_password, openai_api_key)
         scraper.chat_with_dataframe(st.session_state.df)
 
