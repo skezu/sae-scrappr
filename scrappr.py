@@ -67,15 +67,16 @@ class TwitterScraper:
             logging.error(f"WebDriver exception occurred: {e}")
             raise
 
-    def search_tweets(self, query):
+    def search_tweets(self, query, tweet_type):
         try:
             time.sleep(3)
-            self.driver.get('https://x.com/explore')
-            WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '//*[@id="react-root"]/div/div/div[2]/main/div/div/div/div[1]/div/div[1]/div[1]/div[1]/div/div/div/div/div[1]/div[2]/div/div/div/form/div[1]/div/div/div/div/div[2]/div/input')))
-            search_box = self.driver.find_element(By.XPATH, '//*[@id="react-root"]/div/div/div[2]/main/div/div/div/div[1]/div/div[1]/div[1]/div[1]/div/div/div/div/div[1]/div[2]/div/div/div/form/div[1]/div/div/div/div/div[2]/div/input')
-            search_box.send_keys(query)
-            search_box.send_keys(Keys.ENTER)
-            WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '//*[@id="react-root"]/div/div/div[2]/main/div/div/div/div[1]/div/div[1]/div[1]/div[2]/nav/div/div[2]/div/div[2]/a'))).click()
+            url = f"https://twitter.com/search?q={query}&src=typed_query&f={'live' if tweet_type == 'Recent' else 'top'}"
+            self.driver.get(url)
+            # WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '//*[@id="react-root"]/div/div/div[2]/main/div/div/div/div[1]/div/div[1]/div[1]/div[1]/div/div/div/div/div[1]/div[2]/div/div/div/form/div[1]/div/div/div/div/div[2]/div/input')))
+            # search_box = self.driver.find_element(By.XPATH, '//*[@id="react-root"]/div/div/div[2]/main/div/div/div/div[1]/div/div[1]/div[1]/div[1]/div/div/div/div/div[1]/div[2]/div/div/div/form/div[1]/div/div/div/div/div[2]/div/input')
+            # search_box.send_keys(query)
+            # search_box.send_keys(Keys.ENTER)
+            # WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '//*[@id="react-root"]/div/div/div[2]/main/div/div/div/div[1]/div/div[1]/div[1]/div[2]/nav/div/div[2]/div/div[2]/a'))).click()
         except TimeoutException:
             logging.error("Timeout while trying to search tweets.")
             raise
@@ -137,10 +138,10 @@ class TwitterScraper:
                     response = agent.invoke(prompt)
                     st.write(response["output"])
 
-    def run(self, query, max_tweets=100):
+    def run(self, query, tweet_type, max_tweets=100):
         try:
             self.login_to_twitter()
-            self.search_tweets(query)
+            self.search_tweets(query, tweet_type)
             tweets = self.scrape_tweets(max_tweets)
             return tweets
         except Exception as e:
@@ -163,6 +164,8 @@ def main():
     
     if not allow_replies:
         query += " -filter:replies"
+
+    tweet_type = st.radio("Select Tweet Type", ("Recent", "New"))
     
     max_tweets = st.slider("Number of Tweets to Scrape", min_value=10, max_value=100, value=50)
 
@@ -173,7 +176,7 @@ def main():
     
         scraper = TwitterScraper(twitter_email, twitter_username, twitter_password, openai_api_key)
         with st.spinner("Scraping and formatting tweets..."):
-            responses = scraper.run(query, max_tweets)
+            responses = scraper.run(query, tweet_type, max_tweets)
         if responses:
             st.session_state.responses = responses
             st.session_state.df = pd.DataFrame(responses, columns=["Tweet"])
