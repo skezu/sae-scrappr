@@ -20,11 +20,11 @@ import pandas as pd
 logging.basicConfig(level=logging.INFO)
 
 class TwitterScraper:
-    def __init__(self, twitter_email, twitter_username, twitter_password, openai_api_key=os.getenv('OPENAI_API_KEY')):
-        self.twitter_email = twitter_email
-        self.twitter_username = twitter_username
-        self.twitter_password = twitter_password
-        self.openai_api_key = openai_api_key
+    def __init__(self, twitter_email=None, twitter_username=None, twitter_password=None, openai_api_key=None):
+        self.twitter_email = twitter_email or os.getenv('TWITTER_EMAIL')
+        self.twitter_username = twitter_username or os.getenv('TWITTER_USERNAME')
+        self.twitter_password = twitter_password or os.getenv('TWITTER_PASSWORD')
+        self.openai_api_key = openai_api_key or os.getenv('OPENAI_API_KEY')
         self.prompt_system = ("You are a helpful and skilled assistant designed to analyze sentiments "
                               "expressed in a list of tweets. Based on a provided list of tweets, you will "
                               "provide an analysis of a summary table in csv format (delimiter '|') of the "
@@ -38,7 +38,7 @@ class TwitterScraper:
     @staticmethod
     def initialize_driver():
         options = webdriver.ChromeOptions()
-        #options.add_argument('--headless')
+        options.add_argument('--headless')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         options.page_load_strategy = 'none'
@@ -47,16 +47,18 @@ class TwitterScraper:
     def login_to_twitter(self):
         try:
             self.driver.get('https://twitter.com/i/flow/login')
-            WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div/div/div/div[4]/label/div/div[2]/div/input'))).send_keys(self.twitter_email)
+            # WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div/div/div/div[4]/label/div/div[2]/div/input'))).send_keys(self.twitter_email)
+            WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div/div/div/div[4]/label/div/div[2]/div/input'))).send_keys(self.twitter_username)
             self.driver.find_element(By.XPATH, '//*[@id="layers"]/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div/div/div/button[2]').click()
             
-            try:
-                WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div[2]/label/div/div[2]/div/input'))).send_keys(self.twitter_username)
-                self.driver.find_element(By.XPATH, '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[2]/div/div/div/button').click()
-            except NoSuchElementException:
-                logging.info("Username confirmation page not found, continuing...")
-
-            WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div/div[3]/div/label/div/div[2]/div[1]/input'))).send_keys(self.twitter_password)
+            # try:
+            #     WebDriverWait(self.driver, 3).until(EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div[2]/label/div/div[2]/div/input'))).send_keys(self.twitter_username)
+            #     self.driver.find_element(By.XPATH, '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[2]/div/div/div/button').click()
+            # except NoSuchElementException:
+            #     logging.info("Username confirmation page not found, continuing...")
+            
+            password = WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '/html/body/div/div/div/div[1]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div/div[3]/div/label/div/div[2]/div[1]/input')))
+            password.send_keys(self.twitter_password)
             self.driver.find_element(By.XPATH, '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[2]/div/div[1]/div/div/button').click()
         except TimeoutException:
             logging.error("Timeout while trying to log in to Twitter.")
@@ -151,34 +153,41 @@ def main():
     st.title("Twitter Sentiment Analysis")
 
     st.sidebar.title("Configuration")
-    twitter_email = st.sidebar.text_input("Twitter Email", type="password")
+    twitter_email = st.sidebar.text_input("Twitter Email")
     twitter_username = st.sidebar.text_input("Twitter Username")
     twitter_password = st.sidebar.text_input("Twitter Password", type="password")
     openai_api_key = st.sidebar.text_input("OpenAI API Key", type="password")
 
     query = st.text_input("Search Query", "Donald Trump election")
-    max_tweets = st.slider("Number of Tweets to Scrape", min_value=10, max_value=500, value=100)
+    allow_replies = st.checkbox("Allow Replies")
+    
+    if not allow_replies:
+        query += " -filter:replies"
+    
+    max_tweets = st.slider("Number of Tweets to Scrape", min_value=10, max_value=100, value=50)
 
     if "responses" not in st.session_state:
         st.session_state.responses = None
 
     if st.button("Scrap tweets"):
-        if not (twitter_email and twitter_username and twitter_password and openai_api_key):
-            st.error("Please fill in all the fields in the sidebar.")
+    
+        scraper = TwitterScraper(twitter_email, twitter_username, twitter_password, openai_api_key)
+        with st.spinner("Scraping and formatting tweets..."):
+            responses = scraper.run(query, max_tweets)
+        if responses:
+            st.session_state.responses = responses
+            st.session_state.df = pd.DataFrame(responses, columns=["Tweet"])
+            st.dataframe(st.session_state.df, use_container_width=True)
         else:
-            scraper = TwitterScraper(twitter_email, twitter_username, twitter_password, openai_api_key)
-            with st.spinner("Scraping and formatting tweets..."):
-                responses = scraper.run(query, max_tweets)
-            if responses:
-                st.session_state.responses = responses
-                st.session_state.df = pd.DataFrame(responses, columns=["Tweet"])
-                st.dataframe(st.session_state.df, use_container_width=True)
-            else:
-                st.error("An error occurred during the process. Please check the logs.")
+            st.error("An error occurred during the process. Please check the logs.")
 
     if st.session_state.responses:
-        #st.dataframe(st.session_state.df, use_container_width=True)
-        scraper = TwitterScraper(twitter_email, twitter_username, twitter_password, openai_api_key)
+        scraper = TwitterScraper(
+            twitter_email=twitter_email or None,
+            twitter_username=twitter_username or None,
+            twitter_password=twitter_password or None,
+            openai_api_key=openai_api_key or None
+        )
         scraper.chat_with_dataframe(st.session_state.df)
 
 if __name__ == "__main__":
