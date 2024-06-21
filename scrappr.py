@@ -47,15 +47,15 @@ class TwitterScraper:
     def login_to_twitter(self):
         try:
             self.driver.get('https://twitter.com/i/flow/login')
-            # WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div/div/div/div[4]/label/div/div[2]/div/input'))).send_keys(self.twitter_email)
-            WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div/div/div/div[4]/label/div/div[2]/div/input'))).send_keys(self.twitter_username)
+            WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div/div/div/div[4]/label/div/div[2]/div/input'))).send_keys(self.twitter_email)
+            # WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div/div/div/div[4]/label/div/div[2]/div/input'))).send_keys(self.twitter_username)
             self.driver.find_element(By.XPATH, '//*[@id="layers"]/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div/div/div/button[2]').click()
             
-            # try:
-            #     WebDriverWait(self.driver, 3).until(EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div[2]/label/div/div[2]/div/input'))).send_keys(self.twitter_username)
-            #     self.driver.find_element(By.XPATH, '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[2]/div/div/div/button').click()
-            # except NoSuchElementException:
-            #     logging.info("Username confirmation page not found, continuing...")
+            try:
+                WebDriverWait(self.driver, 3).until(EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div[2]/label/div/div[2]/div/input'))).send_keys(self.twitter_username)
+                self.driver.find_element(By.XPATH, '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[2]/div/div/div/button').click()
+            except NoSuchElementException:
+                logging.info("Username confirmation page not found, continuing...")
             
             password = WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '/html/body/div/div/div/div[1]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div/div[3]/div/label/div/div[2]/div[1]/input')))
             password.send_keys(self.twitter_password)
@@ -88,21 +88,23 @@ class TwitterScraper:
         try:
             time.sleep(1)
             logging.info("Scraping tweets...")
-            soup = BeautifulSoup(self.driver.page_source, 'lxml')
-            postings = soup.find_all('div', {'class': 'css-146c3p1 r-8akbws r-krxsd3 r-dnmrzs r-1udh08x r-bcqeeo r-1ttztb7 r-qvutc0 r-1qd0xha r-a023e6 r-rjixqe r-16dba41 r-bnwqim', 'data-testid': 'tweetText'})
-            
             tweets = []
             while True:
-                for post in postings:
-                    tweets.append(post.text)
+                script = """
+                    var tweets = [];
+                    var elements = document.querySelectorAll('div[data-testid="tweetText"]');
+                    for (var i = 0; i < elements.length; i++) {
+                        tweets.push(elements[i].innerText);
+                    }
+                    return tweets;
+                """
+                tweets.extend(self.driver.execute_script(script))
                 self.driver.execute_script('window.scrollTo(0, document.body.scrollHeight)')
-                time.sleep(1)
-                soup = BeautifulSoup(self.driver.page_source, 'lxml')
-                postings = soup.find_all('div', class_='css-146c3p1 r-8akbws r-krxsd3 r-dnmrzs r-1udh08x r-bcqeeo r-1ttztb7 r-qvutc0 r-1qd0xha r-a023e6 r-rjixqe r-16dba41 r-bnwqim')
-                tweets2 = list(set(tweets))
-                if len(tweets2) > max_tweets:
+                # time.sleep(1)
+                
+                if len(tweets) > max_tweets:
                     break
-            return tweets2
+            return tweets
         except Exception as e:
             logging.error(f"Error while scraping tweets: {e}")
             raise
