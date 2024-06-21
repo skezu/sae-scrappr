@@ -2,6 +2,7 @@ import os
 import time
 import logging
 import streamlit as st
+import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -11,10 +12,7 @@ from selenium.common.exceptions import NoSuchElementException, TimeoutException,
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
-from openai import OpenAI
-from langchain_experimental.agents.agent_toolkits import create_pandas_dataframe_agent
-from langchain_groq import ChatGroq
-import pandas as pd
+import openai
 from credentiels import twitter_email, twitter_username, twitter_password, openai_api_key
 
 # Configure logging
@@ -26,38 +24,36 @@ class TwitterScraper:
         self.twitter_username = twitter_username
         self.twitter_password = twitter_password
         self.openai_api_key = openai_api_key
-        self.prompt_system = ("You are a helpful and skilled assistant designed to analyze sentiments "
-                              "expressed in a list of tweets. Based on a provided list of tweets, you will "
-                              "provide an analysis of a summary table in csv format (delimiter '|') of the "
-                              "tweets with their detected sentiment. You will chose between 3 sentiments: "
-                              "Positive, Negative, Neutral. The output will be the sentiment detected regarding "
-                              "Donald Trump's situation in the elections.")
+        openai.api_key = self.openai_api_key
         self.driver = self.initialize_driver()
-        self.client = OpenAI(api_key=self.openai_api_key)
-        self.dataframe = None
+        #self.client = OpenAI(api_key=self.openai_api_key)
+        #self.dataframe = None
 
-    @staticmethod
+    @staticmethod   
     def initialize_driver():
+        # Initialize the web driver
         options = webdriver.ChromeOptions()
-        #options.add_argument('--headless')
-        options.add_argument('--no-sandbox')
-        options.add_argument('--disable-dev-shm-usage')
-        options.page_load_strategy = 'none'
-        return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-
+        #options.add_argument("--headless")
+        options.add_argument("--disable-gpu")
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=options)
+        return driver
+        
     def login_to_twitter(self):
         try:
             self.driver.get('https://twitter.com/i/flow/login')
             WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div/div/div/div[4]/label/div/div[2]/div/input'))).send_keys(self.twitter_email)
+            # WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div/div/div/div[4]/label/div/div[2]/div/input'))).send_keys(self.twitter_username)
             self.driver.find_element(By.XPATH, '//*[@id="layers"]/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div/div/div/button[2]').click()
             
-            try:
-                WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div[2]/label/div/div[2]/div/input'))).send_keys(self.twitter_username)
-                self.driver.find_element(By.XPATH, '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[2]/div/div/div/button').click()
-            except NoSuchElementException:
-                logging.info("Username confirmation page not found, continuing...")
-
-            WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div/div[3]/div/label/div/div[2]/div[1]/input'))).send_keys(self.twitter_password)
+            # try:
+            #     WebDriverWait(self.driver, 3).until(EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div[2]/label/div/div[2]/div/input'))).send_keys(self.twitter_username)
+            #     self.driver.find_element(By.XPATH, '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[2]/div/div/div/button').click()
+            # except NoSuchElementException:
+            #     logging.info("Username confirmation page not found, continuing...")
+            
+            password = WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '/html/body/div/div/div/div[1]/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div/div[2]/div/label/div/div[2]/div[1]/input')))
+            password.send_keys(self.twitter_password)
             self.driver.find_element(By.XPATH, '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[2]/div/div[1]/div/div/button').click()
         except TimeoutException:
             logging.error("Timeout while trying to log in to Twitter.")
@@ -105,37 +101,6 @@ class TwitterScraper:
             logging.error(f"Error while scraping tweets: {e}")
             raise
 
-    def analyze_sentiments(self, tweets):
-        logging.info("Analyzing sentiments...")
-        nb_choix = len(tweets) // 20 + 1
-        parts = [tweets[i * (len(tweets) // nb_choix):(i + 1) * (len(tweets) // nb_choix)] for i in range(nb_choix)]
-        responses = []
-        for part in parts:
-            conversation = [
-                {"role": "system", "content": self.prompt_system},
-                {"role": "user", "content": str(part)}
-            ]
-            response = self.client.chat.completions.create(
-                model="gpt-4-1106-preview",
-                messages=conversation
-            )
-            responses.append(response.choices[0].message.content)
-        return responses
-
-    def chat_with_dataframe(self, dataframe):
-        st.subheader("Llama-3-70b")
-        agent = create_pandas_dataframe_agent(
-            ChatGroq(model_name="llama3-70b-8192", temperature=0),
-            dataframe,
-            verbose=True
-        )
-        prompt = st.text_input("Enter your prompt:")
-        if st.button("Generate"):
-            if prompt:
-                with st.spinner("Generating response..."):
-                    response = agent.invoke(prompt)
-                    st.write(response["output"])
-
     def run(self, query, max_tweets=100):
         try:
             self.login_to_twitter()
@@ -148,12 +113,12 @@ class TwitterScraper:
         finally:
             self.driver.quit()
 
-def main():
-    st.title("x Sentiment Analysis")
 
+def main():
+    st.title("x Analysis")
 
     query = st.text_input("Search Query", "Donald Trump election")
-    max_tweets = st.slider("Number of Tweets to Scrape", min_value=10, max_value=500, value=100)
+    max_tweets = st.slider("Number of Tweets to Scrape", min_value=10, max_value=100, value=50)
 
     if "responses" not in st.session_state:
         st.session_state.responses = None
@@ -173,9 +138,22 @@ def main():
                 st.error("An error occurred during the process. Please check the logs.")
 
     if st.session_state.responses:
-        #st.dataframe(st.session_state.df, use_container_width=True)
-        scraper = TwitterScraper(twitter_email, twitter_username, twitter_password, openai_api_key)
-        scraper.chat_with_dataframe(st.session_state.df)
+        st.dataframe(st.session_state.df, use_container_width=True)
+        
+        if st.button("Download Dataframe as CSV"):
+            csv = st.session_state.df.to_csv(index=False)
+            st.download_button(label="Download CSV", data=csv, file_name="tweets.csv", mime="text/csv")
+        
+        if st.button("Go to Chat Page"):
+            st.session_state.page = 'chat'
+            st.experimental_rerun()
 
 if __name__ == "__main__":
-    main()
+    if 'page' not in st.session_state:
+        st.session_state.page = 'home'
+
+    if st.session_state.page == 'home':
+        main()
+    elif st.session_state.page == 'chat':
+        import chat
+        chat.main() 
