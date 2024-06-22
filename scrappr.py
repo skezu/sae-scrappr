@@ -93,39 +93,28 @@ class TwitterScraper:
         try:
             time.sleep(1)
             logging.info("Scraping tweets...")
+            soup = BeautifulSoup(self.driver.page_source, 'lxml')
+            postings = soup.find_all('div', {'class': 'css-175oi2r r-1iusvr4 r-16y2uox r-1777fci r-kzbkwu'})
+            
             tweets = []
-            
             while True:
-                script = """
-                    var data = [];
-                    var tweetElements = document.querySelectorAll('div[data-testid="tweetText"]');
-                    tweetElements.forEach(function(tweetElement) {
-                        var tweetData = {
-                            tweet: tweetElement.innerText,
-                            reply: '0',
-                            retweet: '0',
-                            like: '0',
-                            views: '0'
-                        };
-                        var nextElements = tweetElement.closest('div').querySelectorAll('div[data-testid="app-text-transition-container"]');
-                        if (nextElements.length >= 4) {
-                            tweetData.reply = nextElements[0].innerText;
-                            tweetData.retweet = nextElements[1].innerText;
-                            tweetData.like = nextElements[2].innerText;
-                            tweetData.views = nextElements[3].innerText;
-                        }
-                        data.push(tweetData);
-                    });
-                    return data;
-                """
-                new_tweets = self.driver.execute_script(script)
-                tweets.extend(new_tweets)
+                for post in postings:
+                    tweets.append({
+                        'tweet': post.find('div', {'data-testid': 'tweetText'}).text,
+                        'username': post.find('div', {'class': 'css-175oi2r r-1awozwy r-18u37iz r-1wbh5a2 r-dnmrzs'}).text,
+                        'like': post.find('button', {'data-testid': 'like'}).text,
+                        'reply': post.find('button', {'data-testid': 'reply'}).text,
+                        'retweet': post.find('button', {'data-testid': 'retweet'}).text,
+                        'views': post.find('a', {'class': 'css-175oi2r r-1777fci r-bt1l66 r-bztko3 r-lrvibr r-1ny4l3l r-1loqt21'}).text
+                    })
                 self.driver.execute_script('window.scrollTo(0, document.body.scrollHeight)')
-                
-                if len(tweets) > max_tweets:
+                time.sleep(1)
+                soup = BeautifulSoup(self.driver.page_source, 'lxml')
+                postings = soup.find_all('div', class_='css-175oi2r r-1iusvr4 r-16y2uox r-1777fci r-kzbkwu')
+                tweets2 = list(set(tuple(tweet.items()) for tweet in tweets))
+                if len(tweets2) > max_tweets:
                     break
-            
-            return tweets
+            return [dict(tweet) for tweet in tweets2]
         except Exception as e:
             logging.error(f"Error while scraping tweets: {e}")
             raise
@@ -205,7 +194,7 @@ def main():
         if responses:
             st.session_state.responses = responses
             # Create a DataFrame with the updated structure
-            st.session_state.df = pd.DataFrame(responses, columns=["tweet", "reply", "retweet", "like", "views"])
+            st.session_state.df = pd.DataFrame(responses, columns=["tweet", "username", "reply", "retweet", "like", "views"])
             # Display the DataFrame
             st.dataframe(st.session_state.df, use_container_width=True)
         else:
