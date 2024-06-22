@@ -38,7 +38,7 @@ class TwitterScraper:
     @staticmethod
     def initialize_driver():
         options = webdriver.ChromeOptions()
-        options.add_argument('--headless')
+        # options.add_argument('--headless')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         options.page_load_strategy = 'none'
@@ -52,11 +52,16 @@ class TwitterScraper:
             self.driver.find_element(By.XPATH, '//*[@id="layers"]/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div/div/div/button[2]').click()
             
             try:
-                WebDriverWait(self.driver, 3).until(EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div[2]/label/div/div[2]/div/input'))).send_keys(self.twitter_username)
-                self.driver.find_element(By.XPATH, '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[2]/div/div/div/button').click()
-            except NoSuchElementException:
-                logging.info("Username confirmation page not found, continuing...")
-            
+                usernameConfirm = WebDriverWait(self.driver, 3).until(
+                    EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div[2]/label/div/div[2]/div/input'))
+                )
+                usernameConfirm.send_keys(self.twitter_username)
+                self.driver.find_element(
+                    By.XPATH, '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[2]/div/div/div/button'
+                ).click()
+            except TimeoutException:
+                # Username confirmation step is skipped
+                pass
             password = WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '/html/body/div/div/div/div[1]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div/div[3]/div/label/div/div[2]/div[1]/input')))
             password.send_keys(self.twitter_password)
             self.driver.find_element(By.XPATH, '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[2]/div/div[1]/div/div/button').click()
@@ -89,25 +94,42 @@ class TwitterScraper:
             time.sleep(1)
             logging.info("Scraping tweets...")
             tweets = []
+            
             while True:
                 script = """
-                    var tweets = [];
-                    var elements = document.querySelectorAll('div[data-testid="tweetText"]');
-                    for (var i = 0; i < elements.length; i++) {
-                        tweets.push(elements[i].innerText);
-                    }
-                    return tweets;
+                    var data = [];
+                    var tweetElements = document.querySelectorAll('div[data-testid="tweetText"]');
+                    tweetElements.forEach(function(tweetElement) {
+                        var tweetData = {
+                            tweet: tweetElement.innerText,
+                            reply: '0',
+                            retweet: '0',
+                            like: '0',
+                            views: '0'
+                        };
+                        var nextElements = tweetElement.closest('div').querySelectorAll('div[data-testid="app-text-transition-container"]');
+                        if (nextElements.length >= 4) {
+                            tweetData.reply = nextElements[0].innerText;
+                            tweetData.retweet = nextElements[1].innerText;
+                            tweetData.like = nextElements[2].innerText;
+                            tweetData.views = nextElements[3].innerText;
+                        }
+                        data.push(tweetData);
+                    });
+                    return data;
                 """
-                tweets.extend(self.driver.execute_script(script))
+                new_tweets = self.driver.execute_script(script)
+                tweets.extend(new_tweets)
                 self.driver.execute_script('window.scrollTo(0, document.body.scrollHeight)')
-                # time.sleep(1)
                 
                 if len(tweets) > max_tweets:
                     break
+            
             return tweets
         except Exception as e:
             logging.error(f"Error while scraping tweets: {e}")
             raise
+
 
     def analyze_sentiments(self, tweets):
         logging.info("Analyzing sentiments...")
@@ -179,9 +201,12 @@ def main():
         scraper = TwitterScraper(twitter_email, twitter_username, twitter_password, openai_api_key)
         with st.spinner("Scraping and formatting tweets..."):
             responses = scraper.run(query, tweet_type, max_tweets)
+            print(responses)
         if responses:
             st.session_state.responses = responses
-            st.session_state.df = pd.DataFrame(responses, columns=["Tweet"])
+            # Create a DataFrame with the updated structure
+            st.session_state.df = pd.DataFrame(responses, columns=["tweet", "reply", "retweet", "like", "views"])
+            # Display the DataFrame
             st.dataframe(st.session_state.df, use_container_width=True)
         else:
             st.error("An error occurred during the process. Please check the logs.")
