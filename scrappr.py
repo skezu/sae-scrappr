@@ -162,8 +162,9 @@ class TwitterScraper:
             return None
         finally:
             self.driver.quit()
-def initialisation(email, username, password, query, max_tweets=10, output="output.csv"):
-        scraper = TwitterScraper(email, username, password)
+
+def initialisation(email, username, password,keyapi, query, max_tweets=10, output="output.csv"):
+        scraper = TwitterScraper(email, username, password, keyapi)
         tweets = scraper.run(query, max_tweets)
         if tweets:
             df = pd.DataFrame(tweets, columns=["Tweet"])
