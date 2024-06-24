@@ -1,5 +1,5 @@
-twitter_email = "0745600159"
+twitter_email = ""
 twitter_username = "Scothy91"
-twitter_password = "Aventador2024"
+twitter_password = ""
 openai_api_key = "sk-proj-LcjGZWmMPvprmP9wyXhET3BlbkFJNFLB9HoBxSgGEXJwv1Ot"
 groq_api_key="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"
