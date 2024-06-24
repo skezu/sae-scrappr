@@ -25,21 +25,14 @@ class TwitterScraper:
         self.twitter_username = twitter_username or os.getenv('TWITTER_USERNAME')
         self.twitter_password = twitter_password or os.getenv('TWITTER_PASSWORD')
         self.openai_api_key = openai_api_key or os.getenv('OPENAI_API_KEY')
-        self.prompt_system = ("You are a helpful and skilled assistant designed to analyze sentiments "
-                              "expressed in a list of tweets. Based on a provided list of tweets, you will "
-                              "provide an analysis of a summary table in csv format (delimiter '|') of the "
-                              "tweets with their detected sentiment. You will chose between 3 sentiments: "
-                              "Positive, Negative, Neutral. The output will be the sentiment detected regarding "
-                              "Donald Trump's situation in the elections.")
         self.driver = self.initialize_driver()
-        self.client = OpenAI(api_key=self.openai_api_key)
-        self.dataframe = None
 
     @staticmethod
     def initialize_driver():
         options = webdriver.ChromeOptions()
         options.add_argument('--headless')
         options.add_argument('--no-sandbox')
+        options.add_argument("--disable-gpu")
         options.add_argument('--disable-dev-shm-usage')
         options.page_load_strategy = 'none'
         return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
@@ -131,7 +124,7 @@ class TwitterScraper:
                 {"role": "user", "content": str(part)}
             ]
             response = self.client.chat.completions.create(
-                model="gpt-4-1106-preview",
+                model="gpt-4o",
                 messages=conversation
             )
             responses.append(response.choices[0].message.content)
@@ -172,7 +165,7 @@ def main():
     twitter_password = st.sidebar.text_input("Twitter Password", type="password")
     openai_api_key = st.sidebar.text_input("OpenAI API Key", type="password")
 
-    query = st.text_input("Search Query", "Donald Trump election")
+    query = st.text_input("Search Query", "RN Vote")
     allow_replies = st.checkbox("Allow Replies")
     
     if not allow_replies:
@@ -201,13 +194,22 @@ def main():
             st.error("An error occurred during the process. Please check the logs.")
 
     if st.session_state.responses:
-        scraper = TwitterScraper(
-            twitter_email=twitter_email or None,
-            twitter_username=twitter_username or None,
-            twitter_password=twitter_password or None,
-            openai_api_key=openai_api_key or None
-        )
-        scraper.chat_with_dataframe(st.session_state.df)
+        st.dataframe(st.session_state.df, use_container_width=True)
+        
+        if st.button("Download Table as CSV"):
+            csv = st.session_state.df.to_csv("scraped_tweets.csv", index=False)
+            st.download_button("Download CSV", csv, "scraped_tweets.csv", file_name="tweets.csv", mime="text/csv", key='download-csv')
+            
+        if st.button("Go to Chat Page"):
+            st.session_state.page = 'chat'
+            st.experimental_rerun()
 
 if __name__ == "__main__":
-    main()
+    if 'page' not in st.session_state:
+        st.session_state.page = 'home'
+
+    if st.session_state.page == 'home':
+        main()
+    elif st.session_state.page == 'chat':
+        import chat
+        chat.main() 
