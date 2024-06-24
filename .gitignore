@@ -3,6 +3,7 @@
 venv/
 source/
 templates/
+utilisateur.json/
 main.py
 soup.html
 twitter_scrapper_app.py
