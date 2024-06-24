@@ -1,4 +1,5 @@
-twitter_email = "hamedbenarous00@gmail.com"
+twitter_email = "0745600159"
 twitter_username = "Scothy91"
-twitter_password = "Iceboy123_"
+twitter_password = "Aventador2024"
 openai_api_key = "sk-proj-LcjGZWmMPvprmP9wyXhET3BlbkFJNFLB9HoBxSgGEXJwv1Ot"
+groq_api_key="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"
