@@ -1,7 +1,7 @@
+import argparse
 import os
 import time
 import logging
-import streamlit as st
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -11,20 +11,16 @@ from selenium.common.exceptions import NoSuchElementException, TimeoutException,
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
-from openai import OpenAI
-from langchain_experimental.agents.agent_toolkits import create_pandas_dataframe_agent
-from langchain_groq import ChatGroq
 import pandas as pd
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
 class TwitterScraper:
-    def __init__(self, twitter_email, twitter_username, twitter_password, openai_api_key=os.getenv('OPENAI_API_KEY')):
+    def __init__(self, twitter_email, twitter_username, twitter_password):
         self.twitter_email = twitter_email
         self.twitter_username = twitter_username
         self.twitter_password = twitter_password
-        self.openai_api_key = openai_api_key
         self.prompt_system = ("You are a helpful and skilled assistant designed to analyze sentiments "
                               "expressed in a list of tweets. Based on a provided list of tweets, you will "
                               "provide an analysis of a summary table in csv format (delimiter '|') of the "
@@ -32,7 +28,6 @@ class TwitterScraper:
                               "Positive, Negative, Neutral. The output will be the sentiment detected regarding "
                               "Donald Trump's situation in the elections.")
         self.driver = self.initialize_driver()
-        self.client = OpenAI(api_key=self.openai_api_key)
         self.dataframe = None
 
     @staticmethod
@@ -104,37 +99,6 @@ class TwitterScraper:
             logging.error(f"Error while scraping tweets: {e}")
             raise
 
-    def analyze_sentiments(self, tweets):
-        logging.info("Analyzing sentiments...")
-        nb_choix = len(tweets) // 20 + 1
-        parts = [tweets[i * (len(tweets) // nb_choix):(i + 1) * (len(tweets) // nb_choix)] for i in range(nb_choix)]
-        responses = []
-        for part in parts:
-            conversation = [
-                {"role": "system", "content": self.prompt_system},
-                {"role": "user", "content": str(part)}
-            ]
-            response = self.client.chat.completions.create(
-                model="gpt-4-1106-preview",
-                messages=conversation
-            )
-            responses.append(response.choices[0].message.content)
-        return responses
-
-    def chat_with_dataframe(self, dataframe):
-        st.subheader("Llama-3-70b")
-        agent = create_pandas_dataframe_agent(
-            ChatGroq(model_name="llama3-70b-8192", temperature=0),
-            dataframe,
-            verbose=True
-        )
-        prompt = st.text_input("Enter your prompt:")
-        if st.button("Generate"):
-            if prompt:
-                with st.spinner("Generating response..."):
-                    response = agent.invoke(prompt)
-                    st.write(response["output"])
-
     def run(self, query, max_tweets=100):
         try:
             self.login_to_twitter()
@@ -147,39 +111,36 @@ class TwitterScraper:
         finally:
             self.driver.quit()
 
-def main():
-    st.title("Twitter Sentiment Analysis")
-
-    st.sidebar.title("Configuration")
-    twitter_email = st.sidebar.text_input("Twitter Email", type="password")
-    twitter_username = st.sidebar.text_input("Twitter Username")
-    twitter_password = st.sidebar.text_input("Twitter Password", type="password")
-    openai_api_key = st.sidebar.text_input("OpenAI API Key", type="password")
-
-    query = st.text_input("Search Query", "Donald Trump election")
-    max_tweets = st.slider("Number of Tweets to Scrape", min_value=10, max_value=500, value=100)
-
-    if "responses" not in st.session_state:
-        st.session_state.responses = None
-
-    if st.button("Scrap tweets"):
-        if not (twitter_email and twitter_username and twitter_password and openai_api_key):
-            st.error("Please fill in all the fields in the sidebar.")
+    def initialisation(email, username, password, query, max_tweets=10, output="output.csv"):
+        scraper = TwitterScraper(email, username, password)
+        tweets = scraper.run(query, max_tweets)
+        if tweets:
+            df = pd.DataFrame(tweets, columns=["Tweet"])
+            df.to_csv(output, index=False)
+            print(f"CSV generated: {output}")
         else:
-            scraper = TwitterScraper(twitter_email, twitter_username, twitter_password, openai_api_key)
-            with st.spinner("Scraping and formatting tweets..."):
-                responses = scraper.run(query, max_tweets)
-            if responses:
-                st.session_state.responses = responses
-                st.session_state.df = pd.DataFrame(responses, columns=["Tweet"])
-                st.dataframe(st.session_state.df, use_container_width=True)
-            else:
-                st.error("An error occurred during the process. Please check the logs.")
+            print("No tweets found or an error occurred.")
+        return df
 
-    if st.session_state.responses:
-        #st.dataframe(st.session_state.df, use_container_width=True)
-        scraper = TwitterScraper(twitter_email, twitter_username, twitter_password, openai_api_key)
-        scraper.chat_with_dataframe(st.session_state.df)
+
+def main():
+    parser = argparse.ArgumentParser(description='Scrappr script')
+    parser.add_argument('--email', type=str, required=True, help='Twitter Email')
+    parser.add_argument('--username', type=str, required=True, help='Twitter Username')
+    parser.add_argument('--password', type=str, required=True, help='Twitter Password')
+    parser.add_argument('--query', type=str, default="Donald Trump election", help='Search Query')
+    parser.add_argument('--max_tweets', type=int, default=100, help='Number of Tweets to Scrape')
+    parser.add_argument('--output', type=str, default='output.csv', help='Output CSV file')
+    args = parser.parse_args()
+
+    scraper = TwitterScraper(args.email, args.username, args.password)
+    tweets = scraper.run(args.query, args.max_tweets)
+    if tweets:
+        df = pd.DataFrame(tweets, columns=["Tweet"])
+        df.to_csv(args.output, index=False)
+        print(f"CSV generated: {args.output}")
+    else:
+        print("No tweets found or an error occurred.")
 
 if __name__ == "__main__":
     main()
