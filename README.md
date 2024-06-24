@@ -31,9 +31,13 @@ A Python application for scraping tweets related to a specific topic and analyzi
 
 ## Configuration
 
-1. Create a `.env` file in the root directory and add your OpenAI API key:
+1. Create a `.env` file in the root directory and add your OpenAI API key as well as other credentials:
     ```plaintext
     OPENAI_API_KEY=your_openai_api_key
+    GROQ_API_KEY=your_groq_api_key
+    TWITTER_EMAIL=your_twitter_email
+    TWITTER_USERNAME=your_twitter_username
+    TWITTER_PASSWORD=your_twitter_password
     ```
 
 2. Update the `TwitterScraper` class with your Twitter credentials (email, username, and password) in the Streamlit sidebar.
