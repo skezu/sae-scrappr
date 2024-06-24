@@ -1,5 +1,7 @@
 .env
 .venv/
+venv/
+source/
 templates/
 main.py
 soup.html

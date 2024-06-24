@@ -12,3 +12,5 @@ langchain-groq==0.1.4
 langchain-openai==0.1.7
 python-dotenv==1.0.1
 lxml==5.2.2
+Flask==2.1.2
+Werkzeug==2.1.2

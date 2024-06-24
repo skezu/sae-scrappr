@@ -162,6 +162,16 @@ class TwitterScraper:
             return None
         finally:
             self.driver.quit()
+def initialisation(email, username, password, query, max_tweets=10, output="output.csv"):
+        scraper = TwitterScraper(email, username, password)
+        tweets = scraper.run(query, max_tweets)
+        if tweets:
+            df = pd.DataFrame(tweets, columns=["Tweet"])
+            df.to_csv(output, index=False)
+            print(f"CSV generated: {output}")
+        else:
+            print("No tweets found or an error occurred.")
+        return df
 
 def main():
     st.title("Twitter Sentiment Analysis")
