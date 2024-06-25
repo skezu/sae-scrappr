@@ -3,6 +3,7 @@ import pandas as pd
 from openai import OpenAI
 from langchain_experimental.agents.agent_toolkits import create_pandas_dataframe_agent
 from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
 import os
 
 class TwitterAnalyzer:
@@ -36,14 +37,14 @@ class TwitterAnalyzer:
         return responses
     
     def chat_with_dataframe(self, dataframe):
-        st.subheader("Llama-3-70b")
+        st.subheader("Chat with the AI")
         agent = create_pandas_dataframe_agent(
-            ChatGroq(model_name="llama3-70b-8192", temperature=0),
+            ChatOpenAI(model_name="gpt-4-turbo-2024-04-09", temperature=0),
             dataframe,
             verbose=True
         )
         prompt = st.text_input("Enter your prompt:")
-        if st.button("Generate"):
+        if st.button("Chat"):
             if prompt:
                 with st.spinner("Generating response..."):
                     response = agent.invoke(prompt)
