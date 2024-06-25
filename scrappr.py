@@ -30,7 +30,6 @@ class TwitterScraper:
     @staticmethod
     def initialize_driver():
         options = webdriver.ChromeOptions()
-        options.add_argument('--headless')
         options.add_argument('--no-sandbox')
         options.add_argument("--disable-gpu")
         options.add_argument('--disable-dev-shm-usage')
@@ -41,21 +40,14 @@ class TwitterScraper:
         try:
             self.driver.get('https://twitter.com/i/flow/login')
             WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div/div/div/div[4]/label/div/div[2]/div/input'))).send_keys(self.twitter_email)
-            # WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div/div/div/div[4]/label/div/div[2]/div/input'))).send_keys(self.twitter_username)
             self.driver.find_element(By.XPATH, '//*[@id="layers"]/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div/div/div/button[2]').click()
-            
             try:
-                usernameConfirm = WebDriverWait(self.driver, 3).until(
-                    EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div[2]/label/div/div[2]/div/input'))
-                )
+                usernameConfirm = WebDriverWait(self.driver, 3).until(EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div[2]/label/div/div[2]/div/input')))
                 usernameConfirm.send_keys(self.twitter_username)
-                self.driver.find_element(
-                    By.XPATH, '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[2]/div/div/div/button'
-                ).click()
+                self.driver.find_element(By.XPATH, '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[2]/div/div/div/button').click()
             except TimeoutException:
-                # Username confirmation step is skipped
                 pass
-            password = WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '/html/body/div/div/div/div[1]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div/div[3]/div/label/div/div[2]/div[1]/input')))
+            password = WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '/html/body/div/div/div/div[1]/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div/div[2]/div/label/div/div[2]/div[1]/input')))
             password.send_keys(self.twitter_password)
             self.driver.find_element(By.XPATH, '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[2]/div/div[1]/div/div/button').click()
         except TimeoutException:
@@ -70,11 +62,6 @@ class TwitterScraper:
             time.sleep(3)
             url = f"https://twitter.com/search?q={query}&src=typed_query&f={'live' if tweet_type == 'Recent' else 'top'}"
             self.driver.get(url)
-            # WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '//*[@id="react-root"]/div/div/div[2]/main/div/div/div/div[1]/div/div[1]/div[1]/div[1]/div/div/div/div/div[1]/div[2]/div/div/div/form/div[1]/div/div/div/div/div[2]/div/input')))
-            # search_box = self.driver.find_element(By.XPATH, '//*[@id="react-root"]/div/div/div[2]/main/div/div/div/div[1]/div/div[1]/div[1]/div[1]/div/div/div/div/div[1]/div[2]/div/div/div/form/div[1]/div/div/div/div/div[2]/div/input')
-            # search_box.send_keys(query)
-            # search_box.send_keys(Keys.ENTER)
-            # WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '//*[@id="react-root"]/div/div/div[2]/main/div/div/div/div[1]/div/div[1]/div[1]/div[2]/nav/div/div[2]/div/div[2]/a'))).click()
         except TimeoutException:
             logging.error("Timeout while trying to search tweets.")
             raise
@@ -88,18 +75,18 @@ class TwitterScraper:
             logging.info("Scraping tweets...")
             soup = BeautifulSoup(self.driver.page_source, 'lxml')
             postings = soup.find_all('div', {'class': 'css-175oi2r r-1iusvr4 r-16y2uox r-1777fci r-kzbkwu'})
-            
             tweets = []
             while True:
                 for post in postings:
                     tweets.append({
                         'tweet': post.find('div', {'data-testid': 'tweetText'}).text,
                         'username': post.find('div', {'class': 'css-175oi2r r-1awozwy r-18u37iz r-1wbh5a2 r-dnmrzs'}).text,
+                        'reply': post.find('button', {'data-testid':'reply'}).text,
+                        'retweet': post.find('button', {'data-testid':'retweet'}).text,
                         'like': post.find('button', {'data-testid': 'like'}).text,
-                        'reply': post.find('button', {'data-testid': 'reply'}).text,
-                        'retweet': post.find('button', {'data-testid': 'retweet'}).text,
                         'views': post.find('a', {'class': 'css-175oi2r r-1777fci r-bt1l66 r-bztko3 r-lrvibr r-1ny4l3l r-1loqt21'}).text
                     })
+
                 self.driver.execute_script('window.scrollTo(0, document.body.scrollHeight)')
                 time.sleep(1)
                 soup = BeautifulSoup(self.driver.page_source, 'lxml')
@@ -111,7 +98,6 @@ class TwitterScraper:
         except Exception as e:
             logging.error(f"Error while scraping tweets: {e}")
             raise
-
 
     def analyze_sentiments(self, tweets):
         logging.info("Analyzing sentiments...")
@@ -156,60 +142,59 @@ class TwitterScraper:
         finally:
             self.driver.quit()
 
-def main():
+def main_scraping_page():
     st.title("Twitter Sentiment Analysis")
-
     st.sidebar.title("Configuration")
     twitter_email = st.sidebar.text_input("Twitter Email")
     twitter_username = st.sidebar.text_input("Twitter Username")
     twitter_password = st.sidebar.text_input("Twitter Password", type="password")
     openai_api_key = st.sidebar.text_input("OpenAI API Key", type="password")
-
     query = st.text_input("Search Query", "RN Vote")
     allow_replies = st.checkbox("Allow Replies")
-    
     if not allow_replies:
         query += " -filter:replies"
-
     tweet_type = st.radio("Select Tweet Type", ("Recent", "New"))
-    
     max_tweets = st.slider("Number of Tweets to Scrape", min_value=10, max_value=100, value=50)
 
     if "responses" not in st.session_state:
         st.session_state.responses = None
 
     if st.button("Scrap tweets"):
-    
         scraper = TwitterScraper(twitter_email, twitter_username, twitter_password, openai_api_key)
         with st.spinner("Scraping and formatting tweets..."):
             responses = scraper.run(query, tweet_type, max_tweets)
-            print(responses)
-        if responses:
-            st.session_state.responses = responses
-            # Create a DataFrame with the updated structure
-            st.session_state.df = pd.DataFrame(responses, columns=["tweet", "username", "reply", "retweet", "like", "views"])
-            # Display the DataFrame
-            st.dataframe(st.session_state.df, use_container_width=True)
-        else:
-            st.error("An error occurred during the process. Please check the logs.")
+            if responses:
+                st.session_state.responses = responses
+                st.session_state.df = pd.DataFrame(responses, columns=["tweet", "username", "reply", "retweet", "like", "views"])
+                st.session_state.openai_api_key = openai_api_key
+            else:
+                st.error("An error occurred during the process. Please check the logs.")
 
     if st.session_state.responses:
         st.dataframe(st.session_state.df, use_container_width=True)
-        
-        if st.button("Download Table as CSV"):
-            csv = st.session_state.df.to_csv("scraped_tweets.csv", index=False)
-            st.download_button("Download CSV", csv, "scraped_tweets.csv", file_name="tweets.csv", mime="text/csv", key='download-csv')
-            
-        if st.button("Go to Chat Page"):
-            st.session_state.page = 'chat'
+
+        csv = st.session_state.df.to_csv(index=False, sep=',', encoding='utf-8-sig').encode('utf-8-sig')
+        st.download_button(
+            label="Download Table as CSV",
+            data=csv,
+            file_name="scraped_tweets.csv",
+            mime="text/csv",
+            key='download-csv'
+        )
+
+        if st.button("Go to Chatbot"):
+            st.session_state.page = 'chatbot'
             st.experimental_rerun()
 
-if __name__ == "__main__":
-    if 'page' not in st.session_state:
-        st.session_state.page = 'home'
+def main():
+    if "page" not in st.session_state:
+        st.session_state.page = "home"
 
-    if st.session_state.page == 'home':
-        main()
-    elif st.session_state.page == 'chat':
+    if st.session_state.page == "home":
+        main_scraping_page()
+    elif st.session_state.page == "chatbot":
         import chat
-        chat.main() 
+        chat.main()
+
+if __name__ == "__main__":
+    main()
