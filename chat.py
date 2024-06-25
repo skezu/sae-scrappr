@@ -34,16 +34,32 @@ class TwitterAnalyzer:
             )
             responses.append(response.choices[0].message.content)
         return responses
+    
+    def chat_with_dataframe(self, dataframe):
+        st.subheader("Llama-3-70b")
+        agent = create_pandas_dataframe_agent(
+            ChatGroq(model_name="llama3-70b-8192", temperature=0),
+            dataframe,
+            verbose=True
+        )
+        prompt = st.text_input("Enter your prompt:")
+        if st.button("Generate"):
+            if prompt:
+                with st.spinner("Generating response..."):
+                    response = agent.invoke(prompt)
+                    st.write(response["output"])
+    
 
 def main():
     st.title("Twitter Sentiment Analysis")
 
     if 'df' in st.session_state:
+        analyzer = TwitterAnalyzer()
         df = st.session_state.df
         st.dataframe(df, use_container_width=True)
+        analyzer.chat_with_dataframe(df)
 
         if st.button("Analyze Sentiments"):
-            analyzer = TwitterAnalyzer()
             with st.spinner("Analyzing sentiments..."):
                 tweets = df["tweet"].tolist()
                 analysis = analyzer.analyze_sentiments(tweets)
