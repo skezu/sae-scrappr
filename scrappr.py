@@ -30,6 +30,7 @@ class TwitterScraper:
     @staticmethod
     def initialize_driver():
         options = webdriver.ChromeOptions()
+        options.add_argument('--headless')
         options.add_argument('--no-sandbox')
         options.add_argument("--disable-gpu")
         options.add_argument('--disable-dev-shm-usage')
@@ -47,7 +48,7 @@ class TwitterScraper:
                 self.driver.find_element(By.XPATH, '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[2]/div/div/div/button').click()
             except TimeoutException:
                 pass
-            password = WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '/html/body/div/div/div/div[1]/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div/div[2]/div/label/div/div[2]/div[1]/input')))
+            password = WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, '/html/body/div/div/div/div[1]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div/div[3]/div/label/div/div[2]/div[1]/input')))
             password.send_keys(self.twitter_password)
             self.driver.find_element(By.XPATH, '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[2]/div/div[1]/div/div/button').click()
         except TimeoutException:

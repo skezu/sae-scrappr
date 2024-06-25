@@ -11,7 +11,7 @@ from textblob import TextBlob
 
 def create_top_tweets_chart(df, column, title):
     if column in df.columns and 'username' in df.columns and 'tweet' in df.columns:
-        df[f'{column}_numeric'] = pd.to_numeric(df[column].str.replace(r'[^\d.]', '', regex=True), errors='coerce').fillna(0)
+        # df[f'{column}_numeric'] = pd.to_numeric(df[column].str.replace(r'[^\d.]', '', regex=True), errors='coerce').fillna(0)
         top_tweets = df.nlargest(5, f'{column}_numeric')
         fig = px.bar(top_tweets, x='username', y=f'{column}_numeric', text=f'{column}_numeric',
                      hover_data=['tweet'], title=title)
@@ -167,16 +167,41 @@ def create_top_hashtags(df):
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.error("Column 'tweet' not found in the DataFrame")
+        
+def convert_to_numeric(value):
+    if isinstance(value, str):
+        value = value.lower().replace(' ', '')  # Remove any spaces
+        if 'k' in value:
+            value = value.replace('k', '000')
+        elif 'm' in value:
+            value = value.replace('m', '000000')
+        # Remove any non-numeric characters except for '.'
+        value = re.sub(r'[^\d.]', '', value)
+        try:
+            return float(value)
+        except ValueError:
+            return 0.0  # Default to 0 if conversion fails
+    return value
+
+def update_numeric_columns(df):
+    for column in ['reply', 'like', 'retweet', 'views']:
+        if column in df.columns:
+            df[f'{column}_numeric'] = df[column].apply(convert_to_numeric).fillna(0)
+    return df
 
 def main():
     st.title("Advanced Twitter Analysis Dashboard")
 
     if 'df' in st.session_state:
         df = st.session_state.df
+        df = update_numeric_columns(df)
         
         # Display DataFrame without numeric columns
-        display_df = df.drop(columns=['like_numeric', 'retweet_numeric', 'views_numeric'], errors='ignore')
+        display_df = df.drop(columns=['like', 'retweet', 'views'], errors='ignore')
         st.dataframe(display_df, use_container_width=True)
+        
+        # 4. Sentiment Distribution
+        create_sentiment_distribution(df)
 
         # 1. Top 5 Most Liked Tweets
         create_top_tweets_chart(df, 'like', "Most Liked Tweets")
@@ -187,8 +212,6 @@ def main():
         # 3. Top 5 Most Viewed Tweets
         create_top_tweets_chart(df, 'views', "Most Viewed Tweets")
 
-        # 4. Sentiment Distribution
-        create_sentiment_distribution(df)
 
         # 5. Top 5 Hashtags
         create_top_hashtags(df)
