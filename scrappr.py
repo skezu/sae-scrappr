@@ -15,6 +15,7 @@ from openai import OpenAI
 from langchain_experimental.agents.agent_toolkits import create_pandas_dataframe_agent
 from langchain_groq import ChatGroq
 import pandas as pd
+import requests
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -161,15 +162,40 @@ def main_scraping_page():
         st.session_state.responses = None
 
     if st.button("Scrap tweets"):
-        scraper = TwitterScraper(twitter_email, twitter_username, twitter_password, openai_api_key)
+        # URL de l'API Flask
+        url = "http://localhost:5001/scrape"
+
+        # Créer le payload pour la requête POST
+        payload = {
+            "email": twitter_email,
+            "username": twitter_username,
+            "password": twitter_password,
+            "api_key": openai_api_key,
+            "query": query,
+            "max_tweets": max_tweets
+        }
+
         with st.spinner("Scraping and formatting tweets..."):
-            responses = scraper.run(query, tweet_type, max_tweets)
-            if responses:
-                st.session_state.responses = responses
-                st.session_state.df = pd.DataFrame(responses, columns=["tweet", "username", "reply", "retweet", "like", "views"])
-                st.session_state.openai_api_key = openai_api_key
-            else:
-                st.error("An error occurred during the process. Please check the logs.")
+            try:
+                # Envoyer la requête POST à l'API Flask
+                response = requests.post(url, json=payload)
+
+                # Vérifier si la requête a réussi
+                if response.status_code == 200:
+                    # Récupérer la réponse JSON
+                    data = response.json()
+
+                    # Assurez-vous que 'data' contient les tweets
+                    if 'tweets' in data:
+                        st.session_state.responses = data['tweets']
+                        st.session_state.df = pd.DataFrame(data['tweets'], columns=["tweet", "username", "reply", "retweet", "like", "views"])
+                        st.session_state.openai_api_key = openai_api_key
+                    else:
+                        st.error("No tweets found or an error occurred.")
+                else:
+                    st.error(f"An error occurred: {response.status_code} - {response.text}")
+            except Exception as e:
+                st.error(f"An exception occurred: {e}")
 
     if st.session_state.responses:
         st.dataframe(st.session_state.df, use_container_width=True)
