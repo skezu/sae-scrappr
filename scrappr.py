@@ -42,6 +42,7 @@ class TwitterScraper:
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         options.page_load_strategy = 'none'
+        
         return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
     def login_to_twitter(self):
@@ -163,16 +164,23 @@ class TwitterScraper:
         finally:
             self.driver.quit()
 
-def initialisation(email, username, password,keyapi, query, max_tweets=10, output="output.csv"):
-        scraper = TwitterScraper(email, username, password, keyapi)
-        tweets = scraper.run(query, max_tweets)
-        if tweets:
-            df = pd.DataFrame(tweets, columns=["Tweet"])
-            df.to_csv(output, index=False)
-            print(f"CSV generated: {output}")
-        else:
-            print("No tweets found or an error occurred.")
-        return df
+def initialisation(email, username, password, keyapi, query, max_tweets=10):
+    scraper = TwitterScraper(email, username, password, keyapi)
+    tweets = scraper.run(query, max_tweets)
+    
+    logging.debug("Tweets fetched: %s", tweets)
+
+    if tweets and isinstance(tweets, list) and all(isinstance(tweet, str) for tweet in tweets):
+        df = pd.DataFrame(tweets, columns=['tweet','username','reply', 'like', 'retweet', 'views'])
+    else:
+        if not tweets:
+            logging.error("No tweets found or an error occurred.")
+        elif not isinstance(tweets, list):
+            logging.error("Expected a list of tweets, got: %s", type(tweets))
+        elif not all(isinstance(tweet, str) for tweet in tweets):
+            logging.error("Some items in the tweets list are not strings: %s", tweets)
+        df = pd.DataFrame([], columns=['tweet','username','reply', 'like', 'retweet', 'views'])
+    return df
 
 def main():
     st.title("Twitter Sentiment Analysis")
