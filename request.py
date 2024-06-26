@@ -13,7 +13,7 @@ with open(json_file_path, 'r') as file:
     data = json.load(file)
 
 # URL de l'API Flask
-url = "http://localhost:5000/scrape"
+url = "http://localhost:5001/scrape"
 
 # Envoyer la requête POST
 response = requests.post(url, json=data)

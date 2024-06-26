@@ -75,4 +75,4 @@ def initialisation(email, username, password, keyapi, query, max_tweets=10):
     return df
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5001)
