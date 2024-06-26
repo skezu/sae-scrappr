@@ -8,6 +8,8 @@ import networkx as nx
 from collections import Counter
 import re
 from textblob import TextBlob
+from langchain_openai import ChatOpenAI
+from langchain_experimental.agents.agent_toolkits import create_pandas_dataframe_agent
 
 def create_top_tweets_chart(df, column, title):
     if column in df.columns and 'username' in df.columns and 'tweet' in df.columns:
@@ -189,6 +191,20 @@ def update_numeric_columns(df):
             df[f'{column}_numeric'] = df[column].apply(convert_to_numeric).fillna(0)
     return df
 
+def chat_with_dataframe(dataframe):
+        st.subheader("ChatGPT")
+        agent = create_pandas_dataframe_agent(
+            ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0),
+            dataframe,
+            verbose=True
+        )
+        prompt = st.text_input("Enter your prompt:")
+        if st.button("Generate"):
+            if prompt:
+                with st.spinner("Generating response..."):
+                    response = agent.invoke(prompt)
+                    st.write(response["output"])
+
 def main():
     st.title("Advanced Twitter Analysis Dashboard")
 
@@ -199,6 +215,9 @@ def main():
         # Display DataFrame without numeric columns
         display_df = df.drop(columns=['like', 'retweet', 'views'], errors='ignore')
         st.dataframe(display_df, use_container_width=True)
+        
+        # Display the chat bot
+        chat_with_dataframe(df)
         
         # 4. Sentiment Distribution
         create_sentiment_distribution(df)
