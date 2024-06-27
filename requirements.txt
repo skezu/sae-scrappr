@@ -16,3 +16,5 @@ plotly==5.15.0
 networkx==3.1
 textblob==0.17.1
 matplotlib==3.7.2
+Flask==2.1.2
+Werkzeug==2.1.2
