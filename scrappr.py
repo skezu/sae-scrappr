@@ -13,8 +13,6 @@ logging.basicConfig(level=logging.INFO)
 
 API_URL = "http://localhost:5001/scrape"  # URL of the Flask API
 
-
-
 def call_scrape_api(email=os.getenv("TWITTER_EMAIL"), username=os.getenv("TWITTER_USERNAME"), password=os.getenv("TWITTER_PASSWORD"), api_key=os.getenv("TWITTER_API_KEY"), query="RN Vote", max_tweets=10):
     try:
         payload = {
