@@ -72,3 +72,4 @@ For any inquiries or issues, please open an issue in the GitHub repository.
 ---
 
 **Note**: Ensure that your Twitter credentials and OpenAI API key are kept secure and not exposed in any public repositories or environments.
+

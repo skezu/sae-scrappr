@@ -6,15 +6,37 @@ import requests
 import pandas as pd
 import dotenv
 
-# Load environment variables
+# Chargement des variables d'environnement
 dotenv.load_dotenv()
-# Configure logging
+
+# Configuration du logging
 logging.basicConfig(level=logging.INFO)
 
-API_URL = "http://localhost:5001/scrape"  # URL of the Flask API
+# URL de l'API Flask
+API_URL = "http://localhost:5001/scrape"
 
-def call_scrape_api(email=os.getenv("TWITTER_EMAIL"), username=os.getenv("TWITTER_USERNAME"), password=os.getenv("TWITTER_PASSWORD"), api_key=os.getenv("TWITTER_API_KEY"), query="RN Vote", max_tweets=10):
+
+def appelle_api_scrape(email, username, password, api_key, query, max_tweets=10):
+    """
+    Appelle l'API de scrapping Twitter avec les informations fournies.
+
+    Args:
+        email (str): Email de connexion à Twitter.
+        username (str): Nom d'utilisateur de connexion à Twitter.
+        password (str): Mot de passe de connexion à Twitter.
+        api_key (str): Clé d'API OpenAI.
+        query (str): Requête de recherche.
+        max_tweets (int, optional): Nombre maximum de tweets à scraper. Defaults to 10.
+
+    Returns:
+        dict: Réponse de l'API contenant les tweets scrappés.
+    """
     try:
+        email = email or os.getenv("TWITTER_EMAIL")
+        username = username or os.getenv("TWITTER_USERNAME")
+        password = password or os.getenv("TWITTER_PASSWORD")
+        api_key = api_key or os.getenv("OPENAI_API_KEY")
+        
         payload = {
             "email": email,
             "username": username,
@@ -28,31 +50,35 @@ def call_scrape_api(email=os.getenv("TWITTER_EMAIL"), username=os.getenv("TWITTE
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        logging.error(f"Error calling scrape API: {e}")
+        logging.error(f"Erreur lors de l'appel de l'API de scrapping: {e}")
         return {"error": str(e)}
 
-def main_scraping_page():
-    st.title("Twitter Sentiment Analysis")
+
+def page_scraping():
+    """
+    Page Streamlit pour le scrapping des tweets.
+    """
+    st.title("Analyse des sentiments Twitter")
     st.sidebar.title("Configuration")
-    twitter_email = st.sidebar.text_input("Twitter Email")
-    twitter_username = st.sidebar.text_input("Twitter Username")
-    twitter_password = st.sidebar.text_input("Twitter Password", type="password")
-    openai_api_key = st.sidebar.text_input("OpenAI API Key", type="password")
-    query = st.text_input("Search Query", "RN Vote")
-    allow_replies = st.checkbox("Allow Replies")
+    twitter_email = st.sidebar.text_input("Email Twitter")
+    twitter_username = st.sidebar.text_input("Nom d'utilisateur Twitter")
+    twitter_password = st.sidebar.text_input("Mot de passe Twitter", type="password")
+    openai_api_key = st.sidebar.text_input("Clé d'API OpenAI", type="password")
+    query = st.text_input("Recherche", "RN Vote")
+    allow_replies = st.checkbox("Autoriser les réponses")
     if not allow_replies:
         query += " -filter:replies"
-    tweet_type = st.radio("Select Tweet Type", ("Recent", "New"))
-    max_tweets = st.slider("Number of Tweets to Scrape", min_value=10, max_value=100, value=50)
+    tweet_type = st.radio("Sélectionner le type de tweet", ("Récent", "Nouveau"))
+    max_tweets = st.slider("Nombre de tweets à scraper", min_value=10, max_value=100, value=50)
 
     if "responses" not in st.session_state:
         st.session_state.responses = None
 
-    if st.button("Scrap tweets"):
-        with st.spinner("Scraping and formatting tweets..."):
-            response = call_scrape_api(twitter_email, twitter_username, twitter_password, openai_api_key, query, max_tweets)
+    if st.button("Scraper les tweets"):
+        with st.spinner("Scraper et formatage des tweets..."):
+            response = appelle_api_scrape(twitter_email, twitter_username, twitter_password, openai_api_key, query, max_tweets)
             if "error" in response:
-                st.error(f"An error occurred: {response['error']}")
+                st.error(f"Une erreur est survenue: {response['error']}")
             else:
                 tweets = response.get("tweets", [])
                 if tweets:
@@ -60,33 +86,37 @@ def main_scraping_page():
                     st.session_state.df = pd.DataFrame(tweets, columns=["tweet", "username", "reply", "retweet", "like", "views"])
                     st.session_state.openai_api_key = openai_api_key
                 else:
-                    st.error("No tweets found or an error occurred.")
+                    st.error("Aucun tweet trouvé ou une erreur est survenue.")
 
     if st.session_state.responses:
         st.dataframe(st.session_state.df, use_container_width=True)
 
         csv = st.session_state.df.to_csv(index=False, sep=',', encoding='utf-8-sig').encode('utf-8-sig')
         st.download_button(
-            label="Download Table as CSV",
+            label="Télécharger les tweets en CSV",
             data=csv,
-            file_name="scraped_tweets.csv",
+            file_name="tweets_scrappes.csv",
             mime="text/csv",
             key='download-csv'
         )
 
-        if st.button("Analysis page"):
+        if st.button("Page d'analyse"):
             st.session_state.page = 'chatbot'
             st.experimental_rerun()
 
 def main():
+    """
+    Point d'entrée de l'application.
+    """
     if "page" not in st.session_state:
         st.session_state.page = "home"
 
     if st.session_state.page == "home":
-        main_scraping_page()
+        page_scraping()
     elif st.session_state.page == "chatbot":
         import chat
         chat.main()
 
 if __name__ == "__main__":
     main()
+

@@ -13,7 +13,6 @@ from langchain_experimental.agents.agent_toolkits import create_pandas_dataframe
 
 def create_top_tweets_chart(df, column, title):
     if column in df.columns and 'username' in df.columns and 'tweet' in df.columns:
-        # df[f'{column}_numeric'] = pd.to_numeric(df[column].str.replace(r'[^\d.]', '', regex=True), errors='coerce').fillna(0)
         top_tweets = df.nlargest(5, f'{column}_numeric')
         fig = px.bar(top_tweets, x='username', y=f'{column}_numeric', text=f'{column}_numeric',
                      hover_data=['tweet'], title=title)
@@ -259,3 +258,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
